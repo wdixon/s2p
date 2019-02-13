@@ -215,7 +215,7 @@ int main(int c, char *v[])
 
     // outputs
     double p[2], q[2], X[3];
-    err = 0;
+    int err = 0;
 
     // count number of valid pixels, and determine utm zone
     int npoints = 0;

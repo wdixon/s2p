@@ -109,7 +109,7 @@ static void parse_utm_string(int *zone, bool *hem, const char *s)
 }
 
 
-void intersect_rays(double out[3], double p[2], double q[2], struct rpc *r1,
+int intersect_rays(double out[3], double p[2], double q[2], struct rpc *r1,
         struct rpc *r2)
 {
     // compute height
@@ -117,7 +117,7 @@ void intersect_rays(double out[3], double p[2], double q[2], struct rpc *r1,
     out[2] = rpc_height(r1, r2, p[0], p[1], q[0], q[1], &err);
 
     // compute lon, lat
-    eval_rpc(out, r1, p[0], p[1], out[2]);
+    return eval_rpc(out, r1, p[0], p[1], out[2]);
 }
 
 
@@ -244,7 +244,9 @@ int main(int c, char *v[])
         float dy = dispy[pix];
         double b[2] = {col + dx, row + dy};
         apply_homography(q, hsec_inv, b);
-        intersect_rays(X, p, q, rpc_ref, rpc_sec);
+        if(intersect_rays(X, p, q, rpc_ref, rpc_sec)) {
+            continue;
+	}
 
         // check with lon/lat bounding box
         if (X[0] < lon_m || X[0] > lon_M || X[1] < lat_m || X[1] > lat_M)
@@ -256,6 +258,10 @@ int main(int c, char *v[])
         // if not defined, utm zone is that of the first point
         if (zone < 0)
             utm_zone(&zone, &hem, X[1], X[0]);
+    }
+
+    if(npoints <= 0) {  
+        return 1;
     }
 
     // print header for ply file
@@ -290,7 +296,9 @@ int main(int c, char *v[])
         float dy = dispy[pix];
         double b[2] = {col + dx, row + dy};
         apply_homography(q, hsec_inv, b);
-        intersect_rays(X, p, q, rpc_ref, rpc_sec);
+        if(intersect_rays(X, p, q, rpc_ref, rpc_sec)) {
+            continue;
+	}
 
         // check with lon/lat bounding box
         if (X[0] < lon_m || X[0] > lon_M || X[1] < lat_m || X[1] > lat_M)

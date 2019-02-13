@@ -364,8 +364,8 @@ static int decompose_vector_basis(double a[2], double x[2], double u[2],
 {
 	double det = u[0]*v[1] - u[1]*v[0];
 	if (fabs(det) < FLT_MIN) {
-		fprintf(stderr, "ERROR: the given basis is not a basis\n");
-		fprintf(stderr, "\tu: (%g, %g), v: (%g, %g)\n", u[0], u[1], v[0], v[1]);
+//		fprintf(stderr, "ERROR: the given basis is not a basis\n");
+//		fprintf(stderr, "\tu: (%g, %g), v: (%g, %g)\n", u[0], u[1], v[0], v[1]);
 		return 1;
 	}
 	a[0] =  v[1]*x[0] - v[0]*x[1];

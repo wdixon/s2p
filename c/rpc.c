@@ -359,23 +359,25 @@ static double l2_squared_dist(double a[2], double b[2])
 // the exact computation is given by:
 //     M = np.vstack((u, v)).T
 // [a,b] = np.dot(np.linalg.inv(M), x)
-static void decompose_vector_basis(double a[2], double x[2], double u[2],
+static int decompose_vector_basis(double a[2], double x[2], double u[2],
 				   double v[2])
 {
 	double det = u[0]*v[1] - u[1]*v[0];
 	if (fabs(det) < FLT_MIN) {
 		fprintf(stderr, "ERROR: the given basis is not a basis\n");
 		fprintf(stderr, "\tu: (%g, %g), v: (%g, %g)\n", u[0], u[1], v[0], v[1]);
+		return 1;
 	}
 	a[0] =  v[1]*x[0] - v[0]*x[1];
 	a[1] = -u[1]*x[0] + u[0]*x[1];
 	a[0] /= det;
 	a[1] /= det;
+	return 0;
 }
 
 // evaluate the normalized direct rpc model, iteratively from the inverse rpc
 // model
-static void eval_nrpc_iterative(double *result,
+static int eval_nrpc_iterative(double *result,
 		struct rpc *p, double x, double y, double z)
 {
 	double a[2];
@@ -393,7 +395,9 @@ static void eval_nrpc_iterative(double *result,
 		double u [2] = {xf[0] - x0[0], xf[1] - x0[1]};
 		double e1[2] = {x1[0] - x0[0], x1[1] - x0[1]};
 		double e2[2] = {x2[0] - x0[0], x2[1] - x0[1]};
-		decompose_vector_basis(a, u, e1, e2);
+		if(decompose_vector_basis(a, u, e1, e2)) {
+			return 1;
+		}
 		lon += a[0] * eps;
 		lat += a[1] * eps;
 		eps = 0.1;
@@ -403,10 +407,11 @@ static void eval_nrpc_iterative(double *result,
 	}
 	result[0] = lon;
 	result[1] = lat;
+	return 0;
 }
 
 // evaluate the normalized direct rpc model
-static void eval_nrpc(double *result,
+static int eval_nrpc(double *result,
 		struct rpc *p, double x, double y, double z)
 {
 	if (isfinite(p->numx[0])) {
@@ -417,20 +422,26 @@ static void eval_nrpc(double *result,
 		result[0] = numx/denx;
 		result[1] = numy/deny;
 		//fprintf(stderr, "\t\tnrpc{%p}(%g %g %g)=>(%g %g)\n", p, x, y, z, result[0], result[1]);
-	} else eval_nrpc_iterative(result, p, x, y, z);
+	} else if (eval_nrpc_iterative(result, p, x, y, z)) {
+		return 1;
+	}
+	return 0;
 }
 
 // evaluate the direct rpc model
-void eval_rpc(double *result,
+int eval_rpc(double *result,
 		struct rpc *p, double x, double y, double z)
 {
 	double nx = (x - p->offset[0])/p->scale[0];
 	double ny = (y - p->offset[1])/p->scale[1];
 	double nz = (z - p->offset[2])/p->scale[2];
 	double tmp[2];
-	eval_nrpc(tmp, p, nx, ny, nz);
+	if(eval_nrpc(tmp, p, nx, ny, nz)) {
+		return 1;
+	}
 	result[0] = tmp[0] * p->iscale[0] + p->ioffset[0];
 	result[1] = tmp[1] * p->iscale[1] + p->ioffset[1];
+	return 0;
 }
 
 // evaluate the inverse rpc model
@@ -551,7 +562,9 @@ static int main_trial(int c, char *v[])
 		double y = random_uniform();
 		double z = random_uniform();
 		double r[2], rr[2];
-		eval_nrpc(r, p, x, y, z);
+		if(eval_nrpc(r, p, x, y, z)) {
+			return 1;
+		}
 		eval_nrpci(rr, p, r[0], r[1], z);
 		fprintf(stderr, "(%g %g %g) => (%g %g) => (%g %g)\n",
 				x, y, z, r[0], r[1], rr[0], rr[1]);

@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
 # s2p - Satellite Stereo Pipeline
+# Modification of original S2P - to prevent q auto for the colorized image mapped to ply
+
 # Copyright (C) 2015, Carlo de Franchis <carlo.de-franchis@polytechnique.org>
 # Copyright (C) 2015, Gabriele Facciolo <facciolo@cmla.ens-cachan.fr>
 # Copyright (C) 2015, Enric Meinhardt <enric.meinhardt@cmla.ens-cachan.fr>
@@ -28,7 +30,7 @@ import argparse
 import numpy as np
 import subprocess
 import multiprocessing
-from osgeo import gdal
+from osgeo import gdal, gdal_array
 import collections
 import shutil
 
@@ -317,7 +319,20 @@ def disparity_to_ply(tile):
         common.image_apply_homography(tmp, cfg['images'][0]['clr'], hom,
                                       ww + 2*cfg['horizontal_margin'],
                                       hh + 2*cfg['vertical_margin'])
-        common.image_qauto(tmp, colors)
+        # Modification to prevent auto stretching of color
+        ds = gdal.Open(tmp)
+        if ds.RasterCount == 3:
+            import cv2
+            np_type = gdal_array.GDALTypeCodeToNumericTypeCode(ds.GetRasterBand(1).DataType)
+            image = np.zeros((ds.RasterYSize, ds.RasterXSize, ds.RasterCount), dtype=np_type)
+            ct = 0
+            for b in range(1, ds.RasterCount + 1):
+                band = ds.GetRasterBand(b)  # bands are indexed from 1
+                image[:, :, ct] = band.ReadAsArray()
+                ct = ct + 1
+            cv2.imwrite(colors,cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
+        else:
+            common.image_qauto(tmp, colors)
     else:
         common.image_qauto(os.path.join(out_dir, 'pair_1', 'rectified_ref.tif'), colors)
 
@@ -719,6 +734,7 @@ def main(user_cfg, steps=ALL_STEPS):
     nb_workers = multiprocessing.cpu_count()  # nb of available cores
     if cfg['max_processes'] is not None:
         nb_workers = cfg['max_processes']
+    cfg['max_processes'] = nb_workers
 
     tw, th = initialization.adjust_tile_size()
     tiles_txt = os.path.join(cfg['out_dir'],'tiles.txt')
@@ -733,6 +749,9 @@ def main(user_cfg, steps=ALL_STEPS):
 
     n = len(cfg['images'])
     tiles_pairs = [(t, i) for i in range(1, n) for t in tiles]
+
+    # omp_num_threads should not exceed nb_workers when multiplied by len(tiles)
+    cfg['omp_num_threads'] = max(1, int(nb_workers / len(tiles_pairs)))
 
     if 'local-pointing' in steps:
         print('correcting pointing locally...')

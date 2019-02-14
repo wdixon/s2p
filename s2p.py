@@ -750,9 +750,6 @@ def main(user_cfg, steps=ALL_STEPS):
     n = len(cfg['images'])
     tiles_pairs = [(t, i) for i in range(1, n) for t in tiles]
 
-    # omp_num_threads should not exceed nb_workers when multiplied by len(tiles)
-    cfg['omp_num_threads'] = max(1, int(nb_workers / len(tiles_pairs)))
-
     if 'local-pointing' in steps:
         print('correcting pointing locally...')
         parallel.launch_calls(pointing_correction, tiles_pairs, nb_workers)

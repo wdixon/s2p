@@ -299,6 +299,7 @@ def disparity_to_ply(tile):
 
     print('triangulating tile {} {}...'.format(x, y))
     # This function is only called when there is a single pair (pair_1)
+
     H_ref = os.path.join(out_dir, 'pair_1', 'H_ref.txt')
     H_sec = os.path.join(out_dir, 'pair_1', 'H_sec.txt')
     pointing = os.path.join(cfg['out_dir'], 'global_pointing_pair_1.txt')
@@ -313,23 +314,33 @@ def disparity_to_ply(tile):
     colors = os.path.join(out_dir, 'rectified_ref.png')
     if cfg['images'][0]['clr']:
         hom = np.loadtxt(H_ref)
-        roi = [[x, y], [x+w, y], [x+w, y+h], [x, y+h]]
-        ww, hh = common.bounding_box2D(common.points_apply_homography(hom, roi))[2:]
         tmp = common.tmpfile('.tif')
-        common.image_apply_homography(tmp, cfg['images'][0]['clr'], hom,
-                                      ww + 2*cfg['horizontal_margin'],
-                                      hh + 2*cfg['vertical_margin'])
+        ds = gdal.Open(disp)
+
+        # compute output images size
+        #roi = [[x, y], [x+w, y], [x+w, y+h], [x, y+h]]
+        #pts1 = common.points_apply_homography(hom, roi)
+        #x0, y0, w0, h0 = common.bounding_box2D(pts1)
+
+        # apply homographies and do the crops
+        #common.image_apply_homography(tmp, cfg['images'][0]['clr'], hom, w0 + 2*hmargin, h0 + 2*vmargin)
+
+        common.image_apply_homography(tmp, cfg['images'][0]['clr'], hom, ds.RasterXSize, ds.RasterYSize)
+
+        #H = np.dot(np.diag([1, 1, 1]), common.matrix_translation(-x, -y))
+        #common.image_apply_homography(tmp, cfg['images'][0]['clr'], H, ds.RasterXSize, ds.RasterYSize)
+        #common.image_crop_gdal(cfg['images'][0]['clr'], x, y, w, h, colors)
+
         # Modification to prevent auto stretching of color
         ds = gdal.Open(tmp)
         if ds.RasterCount == 3:
+            print("HERE - going to write out png")
             import cv2
             np_type = gdal_array.GDALTypeCodeToNumericTypeCode(ds.GetRasterBand(1).DataType)
             image = np.zeros((ds.RasterYSize, ds.RasterXSize, ds.RasterCount), dtype=np_type)
-            ct = 0
             for b in range(1, ds.RasterCount + 1):
                 band = ds.GetRasterBand(b)  # bands are indexed from 1
-                image[:, :, ct] = band.ReadAsArray()
-                ct = ct + 1
+                image[:, :, b-1] = band.ReadAsArray()
             cv2.imwrite(colors,cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
         else:
             common.image_qauto(tmp, colors)
@@ -337,6 +348,7 @@ def disparity_to_ply(tile):
         common.image_qauto(os.path.join(out_dir, 'pair_1', 'rectified_ref.tif'), colors)
 
     # compute the point cloud
+    extra = ''
     triangulation.disp_map_to_point_cloud(ply_file, disp, mask_rect, rpc1, rpc2,
                                           H_ref, H_sec, pointing, colors, extra,
                                           utm_zone=cfg['utm_zone'],
@@ -749,9 +761,6 @@ def main(user_cfg, steps=ALL_STEPS):
 
     n = len(cfg['images'])
     tiles_pairs = [(t, i) for i in range(1, n) for t in tiles]
-
-    # omp_num_threads should not exceed nb_workers when multiplied by len(tiles)
-    cfg['omp_num_threads'] = max(1, int(nb_workers / len(tiles_pairs)))
 
     if 'local-pointing' in steps:
         print('correcting pointing locally...')

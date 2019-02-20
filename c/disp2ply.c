@@ -80,7 +80,8 @@ void write_ply_header(FILE* f, bool ascii, int npoints, int zone, bool hem,
         fprintf(f, "property uchar blue\n");
     }
     if (extra) {
-        fprintf(f, "property double extr\n");
+        //fprintf(f, "property double extr\n");
+        fprintf(f, "property float quality\n");
     }
     fprintf(f, "end_header\n");
 }
@@ -215,7 +216,7 @@ int main(int c, char *v[])
 
     // outputs
     double p[2], q[2], X[3];
-    err = 0;
+    int err = 0;
 
     // count number of valid pixels, and determine utm zone
     int npoints = 0;
@@ -319,9 +320,11 @@ int main(int c, char *v[])
             for (int k = 0; k < pd; k++) rgb[k] = clr[k + pd*pix];
             for (int k = pd; k < 3; k++) rgb[k] = rgb[k-1];
         }
-        double extra[1];
+        float extra[1];
+        //double extra[1];
         if (extr) {
-            extra[0] = extr[pix];
+            //extra[0] = extr[pix];
+            extra[0] = (float)extr[pix];
         }
 
         // write to ply
@@ -337,7 +340,8 @@ int main(int c, char *v[])
                 fwrite(rgb, sizeof(unsigned char), 3, ply_file);
             }
             if (extr) {
-                fwrite(extra, sizeof(double), 1, ply_file);
+                //fwrite(extra, sizeof(double), 1, ply_file);
+                fwrite(extra, sizeof(float), 1, ply_file);
             }
         }
     }

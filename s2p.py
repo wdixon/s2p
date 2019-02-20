@@ -317,24 +317,12 @@ def disparity_to_ply(tile):
         tmp = common.tmpfile('.tif')
         ds = gdal.Open(disp)
 
-        # compute output images size
-        #roi = [[x, y], [x+w, y], [x+w, y+h], [x, y+h]]
-        #pts1 = common.points_apply_homography(hom, roi)
-        #x0, y0, w0, h0 = common.bounding_box2D(pts1)
-
         # apply homographies and do the crops
-        #common.image_apply_homography(tmp, cfg['images'][0]['clr'], hom, w0 + 2*hmargin, h0 + 2*vmargin)
-
         common.image_apply_homography(tmp, cfg['images'][0]['clr'], hom, ds.RasterXSize, ds.RasterYSize)
-
-        #H = np.dot(np.diag([1, 1, 1]), common.matrix_translation(-x, -y))
-        #common.image_apply_homography(tmp, cfg['images'][0]['clr'], H, ds.RasterXSize, ds.RasterYSize)
-        #common.image_crop_gdal(cfg['images'][0]['clr'], x, y, w, h, colors)
 
         # Modification to prevent auto stretching of color
         ds = gdal.Open(tmp)
         if ds.RasterCount == 3:
-            print("HERE - going to write out png")
             import cv2
             np_type = gdal_array.GDALTypeCodeToNumericTypeCode(ds.GetRasterBand(1).DataType)
             image = np.zeros((ds.RasterYSize, ds.RasterXSize, ds.RasterCount), dtype=np_type)

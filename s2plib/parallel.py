@@ -5,6 +5,8 @@ import os
 import sys
 import traceback
 import multiprocessing
+from signal import signal, alarm, SIGALRM, SIGKILL
+import psutil
 
 from s2plib import common
 from s2plib.config import cfg
@@ -23,12 +25,12 @@ def show_progress(a):
                                                        show_progress.total,
                                                        fill='',
                                                        width=len(str(show_progress.total)))
-    if show_progress.counter < show_progress.total:
-        status += chr(8) * len(status)
-    else:
-        status += '\n'
-    sys.stdout.write(status)
-    sys.stdout.flush()
+    #if show_progress.counter < show_progress.total:
+    #    status += chr(8) * len(status)
+    #else:
+    #    status += '\n'
+    print(status, flush=True)
+    #sys.stdout.flush()
 
 
 def tilewise_wrapper(fun, *args, **kwargs):
@@ -53,6 +55,49 @@ def tilewise_wrapper(fun, *args, **kwargs):
         f.close()
 
     return out
+
+
+class Alarm(Exception):
+    def __init__(self):
+        self.pid = os.getpid()
+        process = psutil.Process()
+        self.children = []
+        for c in process.children(recursive=True):
+            self.children.append(c._pid)
+
+
+def tilewise_wrapper2(fun, *args, **kwargs):
+
+    def alarm_handler(signum, frame):
+        raise Alarm
+
+    signal(SIGALRM, alarm_handler)
+    alarm(13*60)
+
+    """
+    """
+    if not cfg['debug']:  # redirect stdout and stderr to log file
+        f = open(kwargs['stdout'], 'a')
+        sys.stdout = f
+        sys.stderr = f
+
+    try:
+        out = fun(*args)
+    except Exception:
+        print("Exception in %s" % fun.__name__)
+        traceback.print_exc()
+        raise
+    finally:
+        alarm(0)
+
+    common.garbage_cleanup()
+    if not cfg['debug']:  # close logs
+        sys.stdout = sys.__stdout__
+        sys.stderr = sys.__stderr__
+        f.close()
+
+    return out
+
 
 
 def launch_calls(fun, list_of_args, nb_workers, *extra_args):
@@ -82,20 +127,27 @@ def launch_calls(fun, list_of_args, nb_workers, *extra_args):
         else:  # we expect x = tile_dictionary
             args = (fun, x) + extra_args
             log = os.path.join(x['dir'], 'stdout.log')
-        results.append(pool.apply_async(tilewise_wrapper, args=args,
+        results.append(pool.apply_async(tilewise_wrapper2, args=args,
                                         kwds={'stdout': log},
                                         callback=show_progress))
 
     for r in results:
         try:
-            outputs.append(r.get(600))  # wait at most 10 min per call
-        except multiprocessing.TimeoutError:
-            print("Timeout while running %s" % str(r))
-            outputs.append(None)
+            outputs.append(r.get()) # 13*60))  # wait at most 10 min per call
+        # except multiprocessing.TimeoutError:
+        #     print("Timeout while running %s" % str(r))
+        #     outputs.append(None)
         except common.RunFailure as e:
             print("FAILED call: ", e.args[0]["command"])
             print("\toutput: ", e.args[0]["output"])
             outputs.append(None)
+
+        except Alarm as e:
+            for pid in e.children:
+                try:
+                    os.kill(pid, SIGKILL)
+                except Exception as ex:
+                    pass
         except KeyboardInterrupt:
             pool.terminate()
             sys.exit(1)

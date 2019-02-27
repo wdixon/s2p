@@ -401,7 +401,9 @@ def rectify_pair(im1, im2, rpc1, rpc2, x, y, w, h, out1, out2, A=None,
                                      sift_matches, A)
 
     # recompute hmargin and homographies
-    hmargin = int(np.ceil(max([hmargin, np.fabs(disp_m), np.fabs(disp_M)])))
+    # CORE3D removed this - as we adds an unbounded hmargin based on disparity.  
+    # we instead assume that the configuration of the padding is adequate
+    # hmargin = int(np.ceil(max([hmargin, np.fabs(disp_m), np.fabs(disp_M)])))
     T = common.matrix_translation(hmargin, vmargin)
     H1, H2 = np.dot(T, H1), np.dot(T, H2)
 

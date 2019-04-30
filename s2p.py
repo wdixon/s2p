@@ -736,6 +736,11 @@ def main(user_cfg, steps=ALL_STEPS):
         nb_workers = cfg['max_processes']
     cfg['max_processes'] = nb_workers
 
+    if cfg['max_matching_processes'] is not None:
+        nb_matching_workers = cfg['max_matching_processes']
+    else:
+        nb_matching_workers = nb_workers
+
     tw, th = initialization.adjust_tile_size()
     tiles_txt = os.path.join(cfg['out_dir'],'tiles.txt')
     create_masks = 'initialisation' in steps
@@ -765,7 +770,7 @@ def main(user_cfg, steps=ALL_STEPS):
 
     if 'matching' in steps:
         print('running stereo matching...')
-        parallel.launch_calls(stereo_matching, tiles_pairs, nb_workers)
+        parallel.launch_calls(stereo_matching, tiles_pairs, nb_matching_workers)
 
     if n > 2 and cfg['triangulation_mode'] == 'pairwise':
         if 'disparity-to-height' in steps:

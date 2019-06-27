@@ -28,10 +28,10 @@ import argparse
 import numpy as np
 import subprocess
 import multiprocessing
+from osgeo import gdal, gdal_array
 import collections
 import shutil
 import rasterio
-
 
 from s2p.config import cfg
 from s2p import common
@@ -272,6 +272,7 @@ def disparity_to_ply(tile):
 
     print('triangulating tile {} {}...'.format(x, y))
     # This function is only called when there is a single pair (pair_1)
+
     H_ref = os.path.join(out_dir, 'pair_1', 'H_ref.txt')
     H_sec = os.path.join(out_dir, 'pair_1', 'H_sec.txt')
     pointing = os.path.join(cfg['out_dir'], 'global_pointing_pair_1.txt')
@@ -286,17 +287,36 @@ def disparity_to_ply(tile):
     colors = os.path.join(out_dir, 'rectified_ref.png')
     if cfg['images'][0]['clr']:
         hom = np.loadtxt(H_ref)
-        roi = [[x, y], [x+w, y], [x+w, y+h], [x, y+h]]
-        ww, hh = common.bounding_box2D(common.points_apply_homography(hom, roi))[2:]
+        #roi = [[x, y], [x+w, y], [x+w, y+h], [x, y+h]]
+        #ww, hh = common.bounding_box2D(common.points_apply_homography(hom, roi))[2:]
         tmp = common.tmpfile('.tif')
-        common.image_apply_homography(tmp, cfg['images'][0]['clr'], hom,
-                                      ww + 2*cfg['horizontal_margin'],
-                                      hh + 2*cfg['vertical_margin'])
-        common.image_qauto(tmp, colors)
+        #common.image_apply_homography(tmp, cfg['images'][0]['clr'], hom,
+        #                              ww + 2*cfg['horizontal_margin'],
+        #                              hh + 2*cfg['vertical_margin'])
+        #common.image_qauto(tmp, colors)
+
+        ds = gdal.Open(disp)
+
+        # apply homographies and do the crops
+        common.image_apply_homography(tmp, cfg['images'][0]['clr'], hom, ds.RasterXSize, ds.RasterYSize)
+
+        # Modification to prevent auto stretching of color
+        ds = gdal.Open(tmp)
+        if ds.RasterCount == 3:
+            import cv2
+            np_type = gdal_array.GDALTypeCodeToNumericTypeCode(ds.GetRasterBand(1).DataType)
+            image = np.zeros((ds.RasterYSize, ds.RasterXSize, ds.RasterCount), dtype=np_type)
+            for b in range(1, ds.RasterCount + 1):
+                band = ds.GetRasterBand(b)  # bands are indexed from 1
+                image[:, :, b-1] = band.ReadAsArray()
+            cv2.imwrite(colors,cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
+        else:
+            common.image_qauto(tmp, colors)
     else:
         common.image_qauto(os.path.join(out_dir, 'pair_1', 'rectified_ref.tif'), colors)
 
     # compute the point cloud
+    extra = ''
     triangulation.disp_map_to_point_cloud(ply_file, disp, mask_rect, rpc1, rpc2,
                                           H_ref, H_sec, pointing, colors, extra,
                                           utm_zone=cfg['utm_zone'],
@@ -668,6 +688,13 @@ def main(user_cfg):
     if cfg['max_processes'] is not None:
         nb_workers = cfg['max_processes']
 
+    cfg['max_processes'] = nb_workers
+
+    if cfg['max_matching_processes'] is not None:
+        nb_matching_workers = cfg['max_matching_processes']
+    else:
+        nb_matching_workers = nb_workers
+
     tw, th = initialization.adjust_tile_size()
     tiles_txt = os.path.join(cfg['out_dir'],'tiles.txt')
     tiles = initialization.tiles_full_info(tw, th, tiles_txt, create_masks=True)
@@ -696,7 +723,7 @@ def main(user_cfg):
 
     # matching step:
     print('running stereo matching...')
-    parallel.launch_calls(stereo_matching, tiles_pairs, nb_workers)
+    parallel.launch_calls(stereo_matching, tiles_pairs, nb_matching_workers)
 
     if n > 2 and cfg['triangulation_mode'] == 'pairwise':
         # disparity-to-height step:

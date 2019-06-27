@@ -395,8 +395,8 @@ static int eval_nrpc_iterative(double *result,
 		double u [2] = {xf[0] - x0[0], xf[1] - x0[1]};
 		double e1[2] = {x1[0] - x0[0], x1[1] - x0[1]};
 		double e2[2] = {x2[0] - x0[0], x2[1] - x0[1]};
-		if (decompose_vector_basis(a, u, e1, e2)) {
-		    return 1;
+		if(decompose_vector_basis(a, u, e1, e2)) {
+			return 1;
 		}
 		lon += a[0] * eps;
 		lat += a[1] * eps;

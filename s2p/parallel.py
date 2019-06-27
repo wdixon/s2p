@@ -29,7 +29,7 @@ def show_progress(a):
     #    status += chr(8) * len(status)
     #else:
     #    status += '\n'
-    #sys.stdout.write(status)
+    print(status, flush=True)
     #sys.stdout.flush()
 
 class Alarm(Exception):
@@ -97,6 +97,49 @@ def tilewise_wrapper(fun, *args, **kwargs):
     return out
 
 
+class Alarm(Exception):
+    def __init__(self):
+        self.pid = os.getpid()
+        process = psutil.Process()
+        self.children = []
+        for c in process.children(recursive=True):
+            self.children.append(c._pid)
+
+
+def tilewise_wrapper2(fun, *args, **kwargs):
+
+    def alarm_handler(signum, frame):
+        raise Alarm
+
+    signal(SIGALRM, alarm_handler)
+    alarm(13*60)
+
+    """
+    """
+    if not cfg['debug']:  # redirect stdout and stderr to log file
+        f = open(kwargs['stdout'], 'a')
+        sys.stdout = f
+        sys.stderr = f
+
+    try:
+        out = fun(*args)
+    except Exception:
+        print("Exception in %s" % fun.__name__)
+        traceback.print_exc()
+        raise
+    finally:
+        alarm(0)
+
+    common.garbage_cleanup()
+    if not cfg['debug']:  # close logs
+        sys.stdout = sys.__stdout__
+        sys.stderr = sys.__stderr__
+        f.close()
+
+    return out
+
+
+
 def launch_calls(fun, list_of_args, nb_workers, *extra_args):
     """
     Run a function several times in parallel with different given inputs.
@@ -130,10 +173,10 @@ def launch_calls(fun, list_of_args, nb_workers, *extra_args):
 
     for r in results:
         try:
-            outputs.append(r.get()) # 13*60)) # wait at most 10 min per call
-        #except multiprocessing.TimeoutError:
-        #    print("Timeout while running %s" % str(r))
-        #    outputs.append(None)
+            outputs.append(r.get()) # 13*60))  # wait at most 10 min per call
+        # except multiprocessing.TimeoutError:
+        #     print("Timeout while running %s" % str(r))
+        #     outputs.append(None)
 
         except common.RunFailure as e:
             print("FAILED call: ", e.args[0]["command"])
@@ -146,7 +189,6 @@ def launch_calls(fun, list_of_args, nb_workers, *extra_args):
                     os.kill(pid, SIGKILL)
                 except Exception as ex:
                     pass
-
         except KeyboardInterrupt:
             pool.terminate()
             sys.exit(1)

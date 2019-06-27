@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
 # s2p - Satellite Stereo Pipeline
+# Modification of original S2P - to prevent q auto for the colorized image mapped to ply
+
 # Copyright (C) 2015, Carlo de Franchis <carlo.de-franchis@polytechnique.org>
 # Copyright (C) 2015, Gabriele Facciolo <facciolo@cmla.ens-cachan.fr>
 # Copyright (C) 2015, Enric Meinhardt <enric.meinhardt@cmla.ens-cachan.fr>
@@ -294,7 +296,6 @@ def disparity_to_ply(tile):
         #                              ww + 2*cfg['horizontal_margin'],
         #                              hh + 2*cfg['vertical_margin'])
         #common.image_qauto(tmp, colors)
-
         ds = gdal.Open(disp)
 
         # apply homographies and do the crops
@@ -687,6 +688,12 @@ def main(user_cfg):
     nb_workers = multiprocessing.cpu_count()  # nb of available cores
     if cfg['max_processes'] is not None:
         nb_workers = cfg['max_processes']
+    cfg['max_processes'] = nb_workers
+
+    if cfg['max_matching_processes'] is not None:
+        nb_matching_workers = cfg['max_matching_processes']
+    else:
+        nb_matching_workers = nb_workers
 
     cfg['max_processes'] = nb_workers
 

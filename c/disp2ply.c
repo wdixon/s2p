@@ -80,7 +80,8 @@ void write_ply_header(FILE* f, bool ascii, int npoints, int zone, bool hem,
         fprintf(f, "property uchar blue\n");
     }
     if (extra) {
-        fprintf(f, "property double extr\n");
+        //fprintf(f, "property double extr\n");
+        fprintf(f, "property float quality\n");
     }
     fprintf(f, "end_header\n");
 }
@@ -245,7 +246,12 @@ int main(int c, char *v[])
         float dy = dispy[pix];
         double b[2] = {col + dx, row + dy};
         apply_homography(q, hsec_inv, b);
-        if (intersect_rays(X, p, q, rpc_ref, rpc_sec)) {
+        if(intersect_rays(X, p, q, rpc_ref, rpc_sec)) {
+	    //err++;
+            //if(err > 100) {
+            //    fprintf(stderr, "too many non-basis, aborting\n");
+            //    return 1;
+            //}
             continue;
 	}
 
@@ -261,7 +267,7 @@ int main(int c, char *v[])
             utm_zone(&zone, &hem, X[1], X[0]);
     }
 
-    if (npoints <= 0) {
+    if(npoints <= 0) {  
         return 1;
     }
 
@@ -297,8 +303,8 @@ int main(int c, char *v[])
         float dy = dispy[pix];
         double b[2] = {col + dx, row + dy};
         apply_homography(q, hsec_inv, b);
-        if (intersect_rays(X, p, q, rpc_ref, rpc_sec)) {
-	    continue;
+        if(intersect_rays(X, p, q, rpc_ref, rpc_sec)) {
+            continue;
 	}
 
         // check with lon/lat bounding box
@@ -314,9 +320,11 @@ int main(int c, char *v[])
             for (int k = 0; k < pd; k++) rgb[k] = clr[k + pd*pix];
             for (int k = pd; k < 3; k++) rgb[k] = rgb[k-1];
         }
-        double extra[1];
+        float extra[1];
+        //double extra[1];
         if (extr) {
-            extra[0] = extr[pix];
+            //extra[0] = extr[pix];
+            extra[0] = (float)extr[pix];
         }
 
         // write to ply
@@ -332,7 +340,8 @@ int main(int c, char *v[])
                 fwrite(rgb, sizeof(unsigned char), 3, ply_file);
             }
             if (extr) {
-                fwrite(extra, sizeof(double), 1, ply_file);
+                //fwrite(extra, sizeof(double), 1, ply_file);
+                fwrite(extra, sizeof(float), 1, ply_file);
             }
         }
     }

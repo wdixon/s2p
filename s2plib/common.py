@@ -432,7 +432,7 @@ def image_apply_homography(out, im, H, w, h, auto_contrast=True):
     run("homography %s -h \"%s\" %s %d %d" % (im, hij, out, w, h))
 
     if auto_contrast:
-        enhance_contrast(im)
+        enhance_contrast(out)
 
 
 def median_filter(im, w, n):

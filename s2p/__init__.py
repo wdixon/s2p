@@ -299,7 +299,7 @@ def disparity_to_ply(tile):
         ds = gdal.Open(disp)
 
         # apply homographies and do the crops
-        common.image_apply_homography(tmp, cfg['images'][0]['clr'], hom, ds.RasterXSize, ds.RasterYSize)
+        common.image_apply_homography(tmp, cfg['images'][0]['clr'], hom, ds.RasterXSize, ds.RasterYSize, auto_contrast=False)
 
         # Modification to prevent auto stretching of color
         ds = gdal.Open(tmp)

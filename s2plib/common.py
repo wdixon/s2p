@@ -17,9 +17,42 @@ import subprocess
 import multiprocessing
 import numpy as np
 from osgeo import gdal
-
-
+import cv2
+import shutil
+import numpy as np
+from skimage import exposure
 from s2plib.config import cfg
+
+
+def enhance_contrast(im):
+    name = os.path.splitext(im)[0]
+    ext = os.path.splitext(im)[1]
+    orig = name + '_orig' + ext
+
+    if not os.path.exists(orig):
+        shutil.copyfile(im, orig)
+
+    ds = gdal.Open(orig)
+    band = ds.GetRasterBand(1)
+    img = band.ReadAsArray()
+
+    msk = np.isnan(img)
+    low = np.nanmin(img)
+    img[msk] = low -1
+
+    img_r = exposure.rescale_intensity(img, out_range=(0, 2**15 - 1))
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    cl_img = clahe.apply(img_r.astype(np.uint16))
+    cl_img = cl_img.astype(np.float32)
+    cl_img[msk] = np.nan
+
+    ds = gdal.Open(im, gdal.GA_Update)
+    band = ds.GetRasterBand(1)
+    band.WriteArray(cl_img.astype(np.float32))
+    band.FlushCache()
+    stats = band.ComputeStatistics(0)
+    band.SetStatistics(stats[0], stats[1], stats[2], stats[3])
+    del ds
 
 
 # add the bin folder to system path
@@ -375,7 +408,7 @@ def image_zoom_out_morpho(im, f):
     return out
 
 
-def image_apply_homography(out, im, H, w, h):
+def image_apply_homography(out, im, H, w, h, auto_contrast=True):
     """
     Applies an homography to an image.
 
@@ -397,6 +430,9 @@ def image_apply_homography(out, im, H, w, h):
 
     # apply the homography
     run("homography %s -h \"%s\" %s %d %d" % (im, hij, out, w, h))
+
+    if auto_contrast:
+        enhance_contrast(im)
 
 
 def median_filter(im, w, n):

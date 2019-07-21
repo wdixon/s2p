@@ -157,8 +157,12 @@ def disparity_range_from_matches(matches, H1, H2, w, h):
     disp_max = np.ceil(np.max(x2 - x1))
 
     # add a security margin to the disparity range
-    disp_min *= (1 - np.sign(disp_min) * cfg['disp_range_extra_margin'])
-    disp_max *= (1 + np.sign(disp_max) * cfg['disp_range_extra_margin'])
+    # disp_min *= (1 - np.sign(disp_min) * cfg['disp_range_extra_margin'])
+    # disp_max *= (1 + np.sign(disp_max) * cfg['disp_range_extra_margin'])
+
+    # fix disparity range 
+    disp_min -= (disp_max - disp_min) * cfg['disp_range_extra_margin']
+    disp_max += (disp_max - disp_min) * cfg['disp_range_extra_margin']
     return disp_min, disp_max
 
 
@@ -245,7 +249,7 @@ def disparity_range(rpc1, rpc2, x, y, w, h, H1, H2, matches, A=None):
 
     # impose a minimal disparity range (TODO this is valid only with the
     # 'center' flag for register_horizontally_translation)
-    disp = min(-3, disp[0]), max( 3,  disp[1])
+    # disp = min(-3, disp[0]), max( 3,  disp[1])
         
     print("Final disparity range: [%f, %f]" % (disp[0], disp[1]))
     return disp

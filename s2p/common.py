@@ -39,7 +39,11 @@ def enhance_contrast(im):
     low = np.nanmin(img)
     img[msk] = low -1
 
-    img_r = exposure.rescale_intensity(img, out_range=(0, 2**15 - 1))
+    lo_range = np.percentile(img, 1)
+    hi_range = np.percentile(img, 99)
+    img = np.maximum(np.minimum(img, hi_range), lo_range)
+
+    img_r = exposure.rescale_intensity(img, out_range=(0, 2**12 - 1))
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     cl_img = clahe.apply(img_r.astype(np.uint16))
     cl_img = cl_img.astype(np.float32)

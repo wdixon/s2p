@@ -44,11 +44,12 @@ class Alarm(Exception):
 def tilewise_wrapper2(fun, *args, **kwargs):
 
     def alarm_handler(signum, frame):
+        print("IN alarm_hadler", flush=True)
         raise Alarm
 
     signal(SIGALRM, alarm_handler)
-    alarm(13*60)
-
+    alarm(kwargs['timeout'])
+    
     """
     """
     if not cfg['debug']:  # redirect stdout and stderr to log file
@@ -57,6 +58,10 @@ def tilewise_wrapper2(fun, *args, **kwargs):
         sys.stderr = f
 
     try:
+        q = kwargs['q']
+        pid = os.getpid()
+        q.put(pid)
+
         out = fun(*args)
     except Exception:
         print("Exception in %s" % fun.__name__)
@@ -97,50 +102,8 @@ def tilewise_wrapper(fun, *args, **kwargs):
     return out
 
 
-class Alarm(Exception):
-    def __init__(self):
-        self.pid = os.getpid()
-        process = psutil.Process()
-        self.children = []
-        for c in process.children(recursive=True):
-            self.children.append(c._pid)
 
-
-def tilewise_wrapper2(fun, *args, **kwargs):
-
-    def alarm_handler(signum, frame):
-        raise Alarm
-
-    signal(SIGALRM, alarm_handler)
-    alarm(13*60)
-
-    """
-    """
-    if not cfg['debug']:  # redirect stdout and stderr to log file
-        f = open(kwargs['stdout'], 'a')
-        sys.stdout = f
-        sys.stderr = f
-
-    try:
-        out = fun(*args)
-    except Exception:
-        print("Exception in %s" % fun.__name__)
-        traceback.print_exc()
-        raise
-    finally:
-        alarm(0)
-
-    common.garbage_cleanup()
-    if not cfg['debug']:  # close logs
-        sys.stdout = sys.__stdout__
-        sys.stderr = sys.__stderr__
-        f.close()
-
-    return out
-
-
-
-def launch_calls(fun, list_of_args, nb_workers, *extra_args):
+def launch_calls(fun, list_of_args, nb_workers, timeout=60, *extra_args):
     """
     Run a function several times in parallel with different given inputs.
 
@@ -156,34 +119,44 @@ def launch_calls(fun, list_of_args, nb_workers, *extra_args):
         list of outputs
     """
     results = []
+    queues = []
     outputs = []
     show_progress.counter = 0
     show_progress.total = len(list_of_args)
     pool = multiprocessing.Pool(nb_workers)
+    m = multiprocessing.Manager()
     for x in list_of_args:
+        q = m.Queue()
         if type(x) == tuple:  # we expect x = (tile_dictionary, pair_id)
             args = (fun,) + x + extra_args
             log = os.path.join(x[0]['dir'], 'pair_%d' % x[1], 'stdout.log')
         else:  # we expect x = tile_dictionary
             args = (fun, x) + extra_args
             log = os.path.join(x['dir'], 'stdout.log')
+        queues.append(q)
         results.append(pool.apply_async(tilewise_wrapper2, args=args,
-                                        kwds={'stdout': log},
-                                        callback=show_progress))
+            kwds={'stdout': log, 'timeout': timeout, 'q': q},
+            callback=show_progress))
 
-    for r in results:
+    for idx, r in enumerate(results):
         try:
-            outputs.append(r.get()) # 13*60))  # wait at most 10 min per call
-        # except multiprocessing.TimeoutError:
-        #     print("Timeout while running %s" % str(r))
-        #     outputs.append(None)
-
+            pid = queues[idx].get()
+            outputs.append(r.get(timeout + 5)) # 13*60))  # wait at most 10 min per call
         except common.RunFailure as e:
             print("FAILED call: ", e.args[0]["command"])
             print("\toutput: ", e.args[0]["output"])
-            outputs.append(None)
-
+        except multiprocessing.TimeoutError:
+            print("Timeout while running %s" % str(r), flush=True)
+            try:
+                os.kill(pid, SIGKILL)
+            except Exception as ex:
+                pass
         except Alarm as e:
+            print("ALARM RAISED")
+            try:
+                os.kill(e.pid, SIGKILL)
+            except Exception as ex:
+                pass
             for pid in e.children:
                 try:
                     os.kill(pid, SIGKILL)
@@ -194,9 +167,12 @@ def launch_calls(fun, list_of_args, nb_workers, *extra_args):
             sys.exit(1)
 
         except Exception as e:
+            pass
+
+        finally:
             outputs.append(None)
 
-    pool.close()
+    pool.terminate()
     pool.join()
     common.print_elapsed_time()
     return outputs

@@ -730,7 +730,7 @@ def main(user_cfg):
 
     # matching step:
     print('running stereo matching...')
-    parallel.launch_calls(stereo_matching, tiles_pairs, nb_matching_workers)
+    parallel.launch_calls(stereo_matching, tiles_pairs, nb_matching_workers, timeout=10*60)
 
     if n > 2 and cfg['triangulation_mode'] == 'pairwise':
         # disparity-to-height step:

@@ -35,7 +35,7 @@ void read_rpc_file_xml(struct rpc *p, char *filename);
 void print_rpc(FILE *f, struct rpc *p, char *n);
 
 // evaluate the direct rpc model
-void eval_rpc(double *result,
+int eval_rpc(double *result,
 		struct rpc *p, double x, double y, double z);
 
 // evaluate the inverse rpc model

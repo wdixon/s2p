@@ -6,7 +6,6 @@ export CXXFLAGS = -march=native -O3
 LDLIBS = -lstdc++
 IIOLIBS = -lz -ltiff -lpng -ljpeg -lm
 GEOLIBS = -lgeotiff -ltiff
-FFTLIBS = -lfftw3f -lfftw3
 GDAL_LIBS=`gdal-config --libs`
 GDAL_CFLAGS=`gdal-config --cflags`
 
@@ -22,20 +21,23 @@ endif
 # names of source and destination directories
 SRCDIR = c
 BINDIR = bin
+LIBDIR = lib
 
 # default rule builds only the programs necessary for the test
-default: $(BINDIR) homography sift imscript mgm mgm_multi piio tvl1
+default: $(BINDIR) $(LIBDIR) homography sift imscript mgm mgm_multi tvl1 lsd
 
 # the "all" rule builds four further correlators
 all: default msmw3 sgbm mgm_multi
 
 # test for the default configuration
 test: default
-	python -u s2p_test.py --all
+	python -u tests/test_s2p.py --all
 
 # make sure that the destination directory is built
 $(BINDIR):
 	mkdir -p $(BINDIR)
+$(LIBDIR):
+	mkdir -p $(LIBDIR)
 
 #
 # four standard "modules": homography, sift, mgm, and mgm_multi
@@ -47,24 +49,21 @@ homography: $(BINDIR)
 
 sift: $(BINDIR)
 	$(MAKE) -j -C c/sift
-	cp c/sift/sift_roi $(BINDIR)
-	cp c/sift/matching $(BINDIR)
-
+	cp c/sift/libsift4ctypes.so $(LIBDIR)
+	cp c/sift/matching ${BINDIR}
 mgm:
 	$(MAKE) -C 3rdparty/mgm
-	cp 3rdparty/mgm/mgm $(BINDIR)
+	#cp 3rdparty/mgm/mgm $(BINDIR)
 
 mgm_multi:
 	mkdir -p $(BINDIR)/build_mgm_multi
 	cd $(BINDIR)/build_mgm_multi; cmake ../../3rdparty/mgm_multi; $(MAKE)
 	cp $(BINDIR)/build_mgm_multi/mgm_multi $(BINDIR)
+	cp $(BINDIR)/build_mgm_multi/mgm $(BINDIR)
 
-# piio: a required python extension
-piio: s2plib/piio/libiio.so
-
-s2plib/piio/libiio.so: s2plib/piio/setup.py s2plib/piio/freemem.c s2plib/piio/iio.c s2plib/piio/iio.h
-	$(MAKE) -C s2plib/piio
-
+lsd:
+	$(MAKE) -C 3rdparty/lsd
+	cp 3rdparty/lsd/lsd $(BINDIR)
 
 #
 # rules for optional "modules": msmw, asift, sgbm, tvl1, etc
@@ -115,20 +114,15 @@ tvl1:
 #
 
 PROGRAMS = $(addprefix $(BINDIR)/,$(SRC))
-SRC = $(SRCIIO) $(SRCFFT) $(SRCKKK)
-SRCIIO = downsa backflow synflow imprintf iion qauto qeasy crop bdint morsi\
-	morphoop cldmask disp_to_h_projective colormesh_projective\
-	remove_small_cc plambda homwarp
-SRCFFT = gblur blur fftconvolve zoom_zeropadding zoom_2d
-SRCKKK = disp_to_h colormesh disp2ply multidisp2ply  bin2asc siftu ransac plyflatten plyextrema plytodsm
+SRC = $(SRCIIO) $(SRCKKK)
+SRCIIO = downsa backflow synflow imprintf qauto morsi\
+	morphoop cldmask remove_small_cc plambda homwarp pview
+SRCKKK = disp_to_h colormesh disp2ply multidisp2ply bin2asc ransac plyflatten plyextrema
 
 imscript: $(BINDIR) $(PROGRAMS)
 
 $(addprefix $(BINDIR)/,$(SRCIIO)) : $(BINDIR)/% : $(SRCDIR)/%.c $(SRCDIR)/iio.o
 	$(CC) $(CFLAGS) $^ -o $@ $(IIOLIBS)
-
-$(addprefix $(BINDIR)/,$(SRCFFT)) : $(BINDIR)/% : $(SRCDIR)/%.c $(SRCDIR)/iio.o
-	$(CC) $(CFLAGS) $^ -o $@ $(IIOLIBS) $(FFTLIBS)
 
 $(SRCDIR)/iio.o: c/iio.c c/iio.h
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -138,9 +132,6 @@ $(SRCDIR)/rpc.o: c/rpc.c c/xfopen.c
 
 $(BINDIR)/bin2asc: c/bin2asc.c
 	$(CC) $(CFLAGS) $^ -o $@
-
-$(BINDIR)/siftu: c/siftu.c c/siftie.c
-	$(CC) $(CFLAGS) $< -lm -o $@
 
 $(BINDIR)/ransac: c/ransac.c c/fail.c c/xmalloc.c c/xfopen.c c/homographies.c\
 	c/ransac_cases.c c/parsenumbers.c c/random.c
@@ -170,9 +161,6 @@ $(BINDIR)/plyextrema: $(SRCDIR)/plyextrema.c $(SRCDIR)/iio.o
 $(BINDIR)/plyflatten: $(SRCDIR)/plyflatten.c $(SRCDIR)/iio.o
 	$(CC) $(CFLAGS) $(GDAL_CFLAGS) $^ -o $@ $(IIOLIBS) $(GDAL_LIBS)
 
-$(BINDIR)/plytodsm: $(SRCDIR)/plytodsm.c $(SRCDIR)/iio.o
-	$(CC) $(CFLAGS) -I/usr/include/geotiff $^ -o $@ $(IIOLIBS) $(GEOLIBS)
-
 # Geographiclib wrappers
 $(SRCDIR)/geographiclib_wrapper.o: c/geographiclib_wrapper.cpp
 	$(CXX) $(CXXFLAGS) -c $^ -o $@
@@ -190,7 +178,7 @@ depend:
 
 # rules for cleaning, nothing interesting below this point
 clean: clean_homography clean_asift clean_sift clean_imscript clean_msmw\
-	clean_msmw2 clean_msmw3 clean_tvl1 clean_sgbm clean_mgm clean_piio\
+	clean_msmw2 clean_msmw3 clean_tvl1 clean_sgbm clean_mgm \
 	clean_depend
 
 clean_depend:
@@ -202,7 +190,7 @@ clean_homography:
 
 clean_sift:
 	$(MAKE) -C c/sift clean
-	$(RM) $(BINDIR)/sift_roi
+	$(RM) $(LIBDIR)/libsift4ctypes.so
 	$(RM) $(BINDIR)/matching
 
 clean_asift:
@@ -241,8 +229,5 @@ clean_mgm:
 	$(MAKE) -C 3rdparty/mgm clean
 	$(RM) $(BINDIR)/mgm
 
-clean_piio:
-	$(MAKE) -C s2plib/piio clean
-
 .PHONY: default all sift sgbm sgbm_opencv msmw tvl1 imscript clean clean_sift\
-	clean_imscript clean_msmw clean_msmw2 clean_tvl1 clean_sgbm clean_piio test
+	clean_imscript clean_msmw clean_msmw2 clean_tvl1 clean_sgbm test

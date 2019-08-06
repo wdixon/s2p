@@ -21,6 +21,7 @@
   "n_gcp_per_axis" : 5,
   "epipolar_thresh" : 0.5,
   "debug" : false,
+  "max_matching_processes": 2,
   "temporary_dir" : "/tmp",
   "tile_size" : 300,
   "clean_tmp" : true,

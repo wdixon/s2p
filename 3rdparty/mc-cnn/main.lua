@@ -30,6 +30,8 @@ cmd:option('-subset', 1)
 cmd:option('-left', '')
 cmd:option('-right', '')
 cmd:option('-disp_max', '')
+cmd:option('-disp_name', '')
+
 
 if dataset == 'kitti' or dataset == 'kitti2015' then
    cmd:option('-hflip', 0)
@@ -1099,8 +1101,10 @@ if opt.a == 'predict' then
    x_batch[1]:copy(x0)
    x_batch[2]:copy(x1)
    disp = stereo_predict(x_batch, 0)
-   print(('Writing disp.bin, %d x %d x %d x %d'):format(disp:size(1), disp:size(2), disp:size(3), disp:size(4)))
-   torch.DiskFile('disp.bin', 'w'):binary():writeFloat(disp:float():storage())
+   print(('Writing disp, %d x %d x %d x %d'):format(disp:size(1), disp:size(2), disp:size(3), disp:size(4)))
+   
+   torch.DiskFile(opt.disp_name, 'w'):binary():writeFloat(disp:float():storage())
+   --torch.DiskFile('disp.bin', 'w'):binary():writeFloat(disp:float():storage())
    os.exit()
 end
 

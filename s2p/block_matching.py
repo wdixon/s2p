@@ -284,14 +284,14 @@ def compute_disparity_map(im1, im2, disp, mask, algo, disp_min=None,
         
         w_ex,h_ex = left_ext.shape
         
-        cv2.imwrite(cnn_dir+ '/im1.png', left_ext)
-        cv2.imwrite(cnn_dir+ '/im2.png', right_ext)
+        cv2.imwrite(work_dir+ '/im1.png', left_ext)
+        cv2.imwrite(work_dir+ '/im2.png', right_ext)
         disp_range = cfg['disp_range']
         
-        common.run('./main.lua kitti slow -a predict -net_fname net/net_kitti_slow_-a_train_all.t7 -left im1.png -right im2.png -disp_max ' + str(disp_range))
+        common.run('./main.lua kitti slow -a predict -net_fname net/net_kitti_slow_-a_train_all.t7 -left ' + work_dir+ '/im1.png -right ' + work_dir + '/im2.png -disp_max ' + str(disp_range) + ' -disp_name '+ work_dir + '/disp.bin')
         
 
-        img = np.memmap('disp.bin', dtype=np.float32, shape=(1, 1, w_ex, h_ex))    
+        img = np.memmap(work_dir + '/disp.bin', dtype=np.float32, shape=(1, 1, w_ex, h_ex))    
         img = np.squeeze(img)
         width, height = img.shape
 
@@ -318,12 +318,12 @@ def compute_disparity_map(im1, im2, disp, mask, algo, disp_min=None,
         mask_arr.save(mask)
        
         #cleanup
-        os.system('rm left.bin')        
-        os.system('rm right.bin')        
-        os.system('rm disp.bin')      
+#        os.system('rm left.bin')        
+#        os.system('rm right.bin')        
+#        os.system('rm disp.bin')      
         
-        os.system('rm im1.png')
-        os.system('rm im2.png')
+#        os.system('rm im1.png')
+#        os.system('rm im2.png')
 
         #change folder back
         os.chdir(s2p_dir)

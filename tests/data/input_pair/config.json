@@ -1,5 +1,5 @@
 {
-  "out_dir" : "../../testoutput/pair_cnntest",
+  "out_dir" : "../../testoutput/pair_cnntestMore",
   "images" : [
     { "img" : "img_01.tif",
       "rpc" : "rpc_01.xml" },
@@ -22,7 +22,7 @@
   "n_gcp_per_axis" : 5,
   "epipolar_thresh" : 0.5,
   "debug" : false,
-  "max_matching_processes": 1,
+  "max_matching_processes": 4,
   "temporary_dir" : "/tmp",
   "tile_size" : 300,
   "fusion_thresh" : 3,

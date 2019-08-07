@@ -8,6 +8,9 @@ import numpy as np
 
 from s2p import common
 from s2p.config import cfg
+from osgeo import gdal
+import cv2
+from PIL import Image
 
 def rectify_secondary_tile_only(algo):
     if algo in ['tvl1_2d']:
@@ -247,3 +250,80 @@ def compute_disparity_map(im1, im2, disp, mask, algo, disp_min=None,
                                    'Correl_LeChantier_Num_5.tif')
         mask = os.path.join(work_dir, 'rectified_mask.png')
         common.run('plambda {0} "x x%q10 < 0 255 if" -o {1}'.format(micmac_cost, mask))
+        
+          
+    if (algo == 'cnn'):
+
+        s2p_dir = os.path.dirname(os.path.dirname(os.path.realpath(os.path.abspath(__file__))))
+        work_dir = os.path.dirname(os.path.abspath(im1))
+        
+        print(work_dir)
+        cnn_dir = s2p_dir + '/3rdparty/mc-cnn'
+        #change into directory for execution (cannot find module libadcensus otherwise?)
+        os.chdir(cnn_dir)
+        
+        #for now only panchro-images supported!
+        im1 = gdal.Open(im1)
+        im1_band = im1.GetRasterBand(1)
+        im1_arr = im1_band.ReadAsArray()
+        #better results than qauto
+        im1_arr_8bit = common.stretch_8bit(im1_arr)
+        
+        
+        im2 = gdal.Open(im2)
+        im2_band = im2.GetRasterBand(1)
+        im2_arr = im2_band.ReadAsArray()
+        #better results than qauto
+        im2_arr_8bit = common.stretch_8bit(im2_arr)
+        
+        w,h = im1_arr_8bit.shape
+        append = np.zeros((w, np.abs(disp_min)))
+
+        left_ext = np.append(append, im1_arr_8bit,  axis=1)    
+        right_ext = np.append(im2_arr_8bit, append, axis=1)    
+        
+        w_ex,h_ex = left_ext.shape
+        
+        cv2.imwrite(cnn_dir+ '/im1.png', left_ext)
+        cv2.imwrite(cnn_dir+ '/im2.png', right_ext)
+        disp_range = cfg['disp_range']
+        
+        common.run('./main.lua kitti slow -a predict -net_fname net/net_kitti_slow_-a_train_all.t7 -left im1.png -right im2.png -disp_max ' + str(disp_range))
+        
+
+        img = np.memmap('disp.bin', dtype=np.float32, shape=(1, 1, w_ex, h_ex))    
+        img = np.squeeze(img)
+        width, height = img.shape
+
+
+        cut_h = np.abs(disp_min)
+        disp_resh = img[:,cut_h:height]
+        disp_resh = disp_resh -  np.abs(disp_min)
+        
+        #different disp notation from s2p
+        disp_resh = -disp_resh
+        
+        disp = os.path.join(work_dir, 'rectified_disp.tif')
+        
+        row, col = disp_resh.shape
+        geotiff = gdal.GetDriverByName('GTiff')
+        disp_s2p = geotiff.Create(disp, col, row, 1, gdal.GDT_Float32) 
+        
+        disp_s2p_band = disp_s2p.GetRasterBand(1)
+        disp_s2p_band.WriteArray(disp_resh)
+
+        mask = os.path.join(work_dir, 'rectified_mask.png')
+
+        mask_arr = Image.fromarray(np.ones((row,col)).astype(np.uint8))
+        mask_arr.save(mask)
+       
+        #cleanup
+        os.system('rm left.bin')        
+        os.system('rm right.bin')        
+        os.system('rm disp.bin')      
+        
+        os.system('rm im1.png')
+        os.system('rm im2.png')
+
+        #change folder back
+        os.chdir(s2p_dir)

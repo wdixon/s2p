@@ -493,3 +493,19 @@ def print_elapsed_time(since_first_call=False):
             print("Elapsed time:", t2 - print_elapsed_time.t0)
     print_elapsed_time.t1 = t2
     print()
+    
+    
+def stretch_8bit(ms, lower_percent=2, higher_percent=98):
+
+    out = np.zeros_like(ms)
+    a = 0
+    b = 255
+    c = np.nanpercentile(ms[:,:], lower_percent)
+    d = np.nanpercentile(ms[:,:], higher_percent)       
+    t = a + (ms[:,:] - c) * (b - a) / (d - c)   
+
+    t[t<a] = a
+    t[t>b] = b
+    out[:,:] =t
+
+    return out.astype(np.uint8)

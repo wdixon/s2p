@@ -34,6 +34,7 @@ from osgeo import gdal, gdal_array
 import collections
 import shutil
 import rasterio
+import math
 
 from s2p.config import cfg
 from s2p import common
@@ -672,7 +673,91 @@ def global_dsm(tiles):
                              "-co TILED=YES -co BIGTIFF=IF_SAFER",
                              "%s %s %s" % (projwin, out_conf_vrt, out_conf_tif)]))
 
+    
+    
+def MedianFill(arr_to_filter):
+    arr = arr_to_filter.copy()
+    h,w = arr.shape
+    for curr_h in range(0,h):
+        for curr_w in range(0,w):
 
+            if(math.isnan(arr[curr_h,curr_w])):
+
+                w1 = curr_w - 1
+                if(w1 < 0):
+                    w1 = 0
+                w2 = curr_w
+                w3 = curr_w + 1
+                if(w3 > curr_w):
+                    w3 = curr_w
+
+                h1 = curr_h - 1 
+                if(h1 < 0):
+                    h1 = 0
+                h2 = curr_h
+                h3 = curr_h + 1
+                if(h3 > curr_h):
+                    h3 = curr_h                
+                #8-NBH
+                nan_nb = 0
+                N = []
+                N1 = arr[h3,w1]
+                if(math.isnan(N1)):
+                    nan_nb = nan_nb + 1
+                else:
+                    N.append(N1)
+                N2 = arr[h3,w2]
+                if(math.isnan(N2)):
+                    nan_nb = nan_nb + 1
+                else:
+                    N.append(N2)
+
+                N3 = arr[h3,w3]
+                if(math.isnan(N3)):
+                    nan_nb = nan_nb + 1
+                else:
+                    N.append(N3)
+
+                N4 = arr[h2,w1]
+                if(math.isnan(N4)):
+                    nan_nb = nan_nb + 1
+                else:
+                    N.append(N4)
+
+                N5 = arr[h2,w3]
+                if(math.isnan(N5)):
+                    nan_nb = nan_nb + 1
+                else:
+                    N.append(N5)
+
+                N6 = arr[h1,w1]
+                if(math.isnan(N6)):
+                    nan_nb = nan_nb + 1
+                else:
+                    N.append(N6)
+
+                N7 = arr[h1,w2]
+                if(math.isnan(N7)):
+                    nan_nb = nan_nb + 1
+                else:
+                    N.append(N7)
+
+                N8 = arr[h1,w3]
+                if(math.isnan(N8)):
+                    nan_nb = nan_nb + 1
+                else:
+                    N.append(N8)
+
+                value_median = np.median(N)
+                arr[curr_h,curr_w] = value_median
+    return arr    
+    
+    
+    
+    
+    
+    
+    
 def main(user_cfg):
     """
     Launch the s2p pipeline with the parameters given in a json file.
@@ -765,6 +850,40 @@ def main(user_cfg):
     print('computing global DSM...')
     global_dsm(tiles)
     common.print_elapsed_time()
+
+
+
+    if(cfg['median_fill'] == True):
+        
+        dsm_orig = os.path.join(cfg['out_dir'], 'dsm.tif')        
+        
+        dsm_data = gdal.Open(dsm_orig)
+        
+        dsm_data_band = dsm_data.GetRasterBand(1)  
+        dsm_arr = np.array(dsm_data_band.ReadAsArray())
+        
+        dsm_filter1 = MedianFill(dsm_arr)
+        
+        dsm_filter1 = np.flip(dsm_filter1)
+        dsm_filtered2 = MedianFill(dsm_filter1)
+        dsm_filtered2 = np.flip(dsm_filtered2)  
+        
+        dsm_filled = os.path.join(cfg['out_dir'], 'dsm_filled.tif')      
+        
+        row,col = dsm_filtered2.shape
+        geotiff = gdal.GetDriverByName('GTiff')
+        dsm_filled_tif = geotiff.Create(dsm_filled, col, row, 1, gdal.GDT_Float32) 
+        
+        dsm_filled_tif.SetGeoTransform(dsm_data.GetGeoTransform()) # origin_x, px_width,0,origin_y,0,px_height
+        
+        dsm_filled_tif.SetProjection(dsm_data.GetProjection())      
+        
+        
+        dsm_filled_band = dsm_filled_tif.GetRasterBand(1)
+        
+        dsm_filled_band.WriteArray(dsm_filtered2)        
+
+
 
     # cleanup
     common.garbage_cleanup()

@@ -1,0 +1,43 @@
+{
+    "roi_utm" : {
+        "utm_band" : 21,
+        "hemisphere" : "S",
+        "x" : 353723.75, 
+        "y" : 6181790.82,
+        "w" : 1500.0,
+        "h" : 1000.0
+    },
+    "dsm_resolution": 0.5,
+    "out_dir": "/home/dominik/core3D-s2p/s2p/tests/testoutput/SFTest",
+    "omp_num_threads": 8,
+    "max_processes": 4,
+    "images": [   
+        {
+            "rpc": "/media/HDD/Core3D-Project/satellite_images/performer_data/performer_source_data/san_fernando/satellite_imagery/WV3/PAN/Dez/18DEC15_1.XML",
+            "img": "/media/HDD/Core3D-Project/satellite_images/performer_data/performer_source_data/san_fernando/satellite_imagery/WV3/PAN/Dez/18DEC15_1.NTF"
+        }, 
+        {
+            "rpc": "/media/HDD/Core3D-Project/satellite_images/performer_data/performer_source_data/san_fernando/satellite_imagery/WV3/PAN/Dez/18DEC15_6.XML",
+            "img": "/media/HDD/Core3D-Project/satellite_images/performer_data/performer_source_data/san_fernando/satellite_imagery/WV3/PAN/Dez/18DEC15_6.NTF"
+        }    
+    ],
+    "vertical_margin": 80,
+    "disp_range_method": "sift",
+    "debug": "true",
+    "sift_match_thresh": 0.6,
+    "temporary_dir": "/tmp",
+    "epipolar_thresh": 0.5,
+    "matching_algorithm": "cnn",
+    "disp_range" : 256,
+    "median_fill" : true,
+    "horizontal_margin": 80,
+    "disable_srtm": "true",
+    "fusion_thresh": 3,
+    "max_matching_processes": 1,
+    "disp_range_extra_margin": 0.2,
+    "msk_erosion": 0,
+    "n_gcp_per_axis": 5,
+    "disp_range_srtm_low_margin": -20,
+    "disp_range_srtm_high_margin": 50,
+    "tile_size": 512
+}

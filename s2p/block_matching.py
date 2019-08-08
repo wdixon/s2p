@@ -288,6 +288,10 @@ def compute_disparity_map(im1, im2, disp, mask, algo, disp_min=None,
         cv2.imwrite(work_dir+ '/im2.png', right_ext)
         disp_range = cfg['disp_range']
         
+        
+        
+        ## ./main.lua kitti slow -a predict -net_fname net/net_kitti_slow_-a_train_all.t7 -left /home/dominik/core3D-s2p/s2p/tests/testoutput/SFTest/tiles/row_0019111_height_545/col_0014529_width_512/pair_1/im1.png -right /home/dominik/core3D-s2p/s2p/tests/testoutput/SFTest/tiles/row_0019111_height_545/col_0014529_width_512/pair_1/im2.png -disp_max 256 -disp_name /home/dominik/core3D-s2p/s2p/tests/testoutput/SFTest/tiles/row_0019111_height_545/col_0014529_width_512/pair_1/disp.bin
+
         common.run('./main.lua kitti slow -a predict -net_fname net/net_kitti_slow_-a_train_all.t7 -left ' + work_dir+ '/im1.png -right ' + work_dir + '/im2.png -disp_max ' + str(disp_range) + ' -disp_name '+ work_dir + '/disp.bin')
         
 

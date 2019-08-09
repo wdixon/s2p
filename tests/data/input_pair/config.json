@@ -1,5 +1,5 @@
 {
-  "out_dir" : "../../testoutput/mgm-multi",
+  "out_dir" : "../../testoutput/fusion4real",
   "images" : [
     { "img" : "img_01.tif",
       "rpc" : "rpc_01.xml" },
@@ -13,7 +13,8 @@
       "h" : 700
   },
   "full_img" : false,
-  "matching_algorithm" : "cnn",
+  "fusion" : true,  
+  "matching_algorithm" : "mgm",
   "disp_range" : 84,
   "median_fill" : true,
   "horizontal_margin": 40,

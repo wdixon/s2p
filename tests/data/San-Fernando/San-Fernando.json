@@ -4,11 +4,11 @@
         "hemisphere" : "S",
         "x" : 353723.75, 
         "y" : 6181790.82,
-        "w" : 1500.0,
-        "h" : 1000.0
+        "w" : 250.0,
+        "h" : 250.0
     },
     "dsm_resolution": 0.5,
-    "out_dir": "/home/dominik/core3D-s2p/s2p/tests/testoutput/SFTest",
+    "out_dir": "/home/dominik/core3D-s2p/s2p/tests/testoutput/SFFusedNo",
     "omp_num_threads": 8,
     "max_processes": 4,
     "images": [   
@@ -27,9 +27,10 @@
     "sift_match_thresh": 0.6,
     "temporary_dir": "/tmp",
     "epipolar_thresh": 0.5,
-    "matching_algorithm": "cnn",
+    "matching_algorithm": "mgm",
     "disp_range" : 256,
     "median_fill" : true,
+    "fusion" : true,  
     "horizontal_margin": 80,
     "disable_srtm": "true",
     "fusion_thresh": 3,

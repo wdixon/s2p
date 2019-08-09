@@ -34,7 +34,7 @@ def compute_disparity_map(im1, im2, disp, mask, algo, disp_min=None,
         disp_min : smallest disparity to consider
         disp_max : biggest disparity to consider
         extra_params: optional string with algorithm-dependent parameters
-    """
+    """    
     if rectify_secondary_tile_only(algo) is False:
         disp_min = [disp_min]
         disp_max = [disp_max]
@@ -251,8 +251,8 @@ def compute_disparity_map(im1, im2, disp, mask, algo, disp_min=None,
         mask = os.path.join(work_dir, 'rectified_mask.png')
         common.run('plambda {0} "x x%q10 < 0 255 if" -o {1}'.format(micmac_cost, mask))
         
-          
-    if (algo == 'cnn'):
+    #first version: only cnn can be fused with another method (can be changed later)
+    if (algo == 'cnn' or cfg["fusion"] == True):
 
         s2p_dir = os.path.dirname(os.path.dirname(os.path.realpath(os.path.abspath(__file__))))
         work_dir = os.path.dirname(os.path.abspath(im1))
@@ -306,8 +306,11 @@ def compute_disparity_map(im1, im2, disp, mask, algo, disp_min=None,
         
         #different disp notation from s2p
         disp_resh = -disp_resh
+        if(cfg["fusion"] == True):
+            disp = os.path.join(work_dir, 'rectified_disp2.tif')
+        else:
+            disp = os.path.join(work_dir, 'rectified_disp.tif')  
         
-        disp = os.path.join(work_dir, 'rectified_disp.tif')
         
         row, col = disp_resh.shape
         geotiff = gdal.GetDriverByName('GTiff')
@@ -316,11 +319,61 @@ def compute_disparity_map(im1, im2, disp, mask, algo, disp_min=None,
         disp_s2p_band = disp_s2p.GetRasterBand(1)
         disp_s2p_band.WriteArray(disp_resh)
 
-        mask = os.path.join(work_dir, 'rectified_mask.png')
+        #otherwise mask from different method!
+        if(cfg["fusion"] == False):
+            
+            mask = os.path.join(work_dir, 'rectified_mask.png')
+    
+            mask_arr = Image.fromarray(np.ones((row,col)).astype(np.uint8))
+            mask_arr.save(mask)
+            
+            
+        if(cfg["fusion"] == True):
+            #disp_resh
+            disp_main = gdal.Open(os.path.join(work_dir, 'rectified_disp.tif'))
+            disp_main_band = disp_main.GetRasterBand(1)
+            disp_main_arr = disp_main_band.ReadAsArray()
+            
+            #CNN is worse on tile borders: copy values of other method!
+            #quarter? halve?
+            #border = cfg["disp_range"]
+            #border = int(border)
+            #print(border)
+            #left
+            #disp_resh[0:border, :] = disp_main_arr[0:border, :]
+            #right
+            #disp_resh[(row-border):row, :] = disp_main_arr[(row-border):row, :]
+            #bottom
+            #disp_resh[:, 0:border] = disp_main_arr[:, 0:border]
+            #upper
+            #disp_resh[:, (col-border):col] = disp_main_arr[:, (col-border):col]
+            
+            #disp_border = os.path.join(work_dir, 'rectified_disp_border.tif')
+            
+            #disp_s2p = geotiff.Create(disp_border, col, row, 1, gdal.GDT_Float32) 
+            
+            #disp_s2p_band = disp_s2p.GetRasterBand(1)
+            #disp_s2p_band.WriteArray(disp_resh)
 
-        mask_arr = Image.fromarray(np.ones((row,col)).astype(np.uint8))
-        mask_arr.save(mask)
-       
+            
+            #simple mean?
+            disp_avg = (disp_main_arr + disp_resh) / 2.0
+            
+            
+            disp_main_arr = None
+            disp_resh = None            
+            
+            #remove old file
+            os.system('rm ' +os.path.join(work_dir, 'rectified_disp.tif'))
+            
+            #create new one
+            disp_new = os.path.join(work_dir, 'rectified_disp.tif')
+            disp_s2p = geotiff.Create(disp_new, col, row, 1, gdal.GDT_Float32) 
+            
+            disp_s2p_band = disp_s2p.GetRasterBand(1)
+            disp_s2p_band.WriteArray(disp_avg)
+            
+            
         #cleanup
 #        os.system('rm left.bin')        
 #        os.system('rm right.bin')        

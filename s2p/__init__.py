@@ -864,9 +864,9 @@ def main(user_cfg):
         
         dsm_filter1 = MedianFill(dsm_arr)
         
-        dsm_filter1 = np.flip(dsm_filter1)
+        dsm_filter1 = np.flip(dsm_filter1, axis=0)
         dsm_filtered2 = MedianFill(dsm_filter1)
-        dsm_filtered2 = np.flip(dsm_filtered2)  
+        dsm_filtered2 = np.flip(dsm_filtered2,axis=0)  
         
         dsm_filled = os.path.join(cfg['out_dir'], 'dsm_filled.tif')      
         

@@ -317,7 +317,9 @@ def disparity_to_ply(tile):
         common.image_qauto(os.path.join(out_dir, 'pair_1', 'rectified_ref.tif'), colors)
 
     # compute the point cloud
-    extra = ''
+
+    # extra = ''  # setting extra to '' will cause the disp2ply to not produce the confidence.tif file
+
     triangulation.disp_map_to_point_cloud(ply_file, disp, mask_rect, rpc1, rpc2,
                                           H_ref, H_sec, pointing, colors, extra,
                                           utm_zone=cfg['utm_zone'],
